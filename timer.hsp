@@ -1,0 +1,110 @@
+#include "a2d.hsp"
+#uselib   "kernel32.dll"
+	#func     Beep "Beep" int,int
+#uselib "user32.dll"
+	#func  SetWindowLong "SetWindowLongA" int,int,int   ;ウィンドウの透明化・半透明化・不透明化_用↓
+	#func  SetLayeredWindowAttributes "SetLayeredWindowAttributes" int,int,int,int
+	#const LWA_COLORKEY  1         ;透明色を指定
+	#const LWA_ALPHA 2             ;アルファー値を指定
+	#const GWL_EXSTYLE -20         ;拡張ウィンドウスタイル
+	#const WS_EX_LAYERED $00080000 ;透明なウィンドウ属性
+	#const WS_EX_TRANSPARENT $00000020
+	#define WM_SYSCOMMAND    $00000112
+	#define SC_CLOSE         $0000F060
+
+	角度=0.0
+	clx=0
+	nloop=120;  input box の内容を格納する変数の初期値
+	buffer 1:picload "btrun.png" 
+	buffer 2:picload "btstop.png"
+	buffer 3:picload "timerst.png"
+	mmload "warning1.mp3",3
+	alCreateImage 0, 640, 480
+	if stat = -1 : dialog "GDI+ を初期化できませんでした。" : end
+
+//    入力ウィンドウを配置
+*settei
+	bgscr 0,220,220,,(ginfo_dispx/2)-110,ginfo_dispy-220
+		SetWindowLong hwnd,-20,WS_EX_LAYERED            
+ 		SetLayeredWindowAttributes hwnd,255,0,LWA_COLORKEY ;
+ 		color 255:boxf 
+ 		gcopy 3,0,0,216,215//color:boxf
+ 		pos 85,100
+		input nloop, 50,20; 50*20 のサイズ,最大3文字まで入力可能
+		inputid=stat; input box の id番号
+		hInput = objinfo(stat, 2)
+		SetWindowLong hInput, -16, $50010080 | $2
+		onclick gosub *WM_LBUTTONDOWN
+	While 1
+		getkey ent,13
+		if ent : gosub *main
+		wait 1
+	Wend
+	stop
+	
+*main
+	bgscr 0,220,220,,(ginfo_dispx/2)-110,ginfo_dispy-220
+	redraw 0
+	gsel 0,2
+	color 255:boxf
+ 	SetWindowLong hwnd,-20,WS_EX_LAYERED            
+ 	SetLayeredWindowAttributes hwnd,255,0,LWA_COLORKEY ;
+	color 255:circle 0,0,220,220
+	color :circle 30,30,190,190//button実装
+	objsize 90,45
+	pos 65,65
+	objimage 1, 0,0,0,46 ,0,46	; ボタン画像の指定
+	button goto "",*start
+	objsize 90,45
+	pos 65,110
+	objimage 2, 0,0, 0,46,0,46	; ボタン画像の指定
+	button goto "",*teisi
+	redraw 1
+	onclick gosub *WM_LBUTTONDOWN
+	repeat
+		wait 2
+		getkey esc,27
+		if (esc&27):goto *escape
+	loop
+	stop
+
+
+*start
+	repeat nloop, 1;    nloop は input box の内容
+        await 1000;      1 秒間待つ
+ 		redraw 0
+ 		pos 100,110
+ 		角度=(360/nloop)*(cnt)
+ 		alColor :alFillPie 0,0,220,220, -90, 角度
+ 		//alFillPie 左上頂点のX,Y座標 （横, （高さ, (開始角度, (そこからの角度
+ 		if cnt<=(nloop/2):Color 0,255,65///緑
+ 		if cnt>=(nloop/2):Color 255,255,0//黄
+ 		if cnt>4*(nloop/5):Color 205,0,0//赤
+		circle 0,0,220,220///30,30,190,190
+		alCopyImageToScreen 0, 0
+		pos 85,85
+		redraw
+		redraw 1
+    loop
+    //任意の音楽の導入
+ 	 mmplay 3     
+ 	dialog"時間です",1
+ 	repeat
+		wait 2
+		getkey esc,27
+		if (esc&27):goto *escape
+	loop
+     stop
+
+*WM_LBUTTONDOWN
+	if wparam=1 : sendmsg hwnd,$00A1,2,0
+	
+	return
+	
+*teisi
+	wait 100
+	goto *settei
+
+*escape
+	sendmsg hwnd,WM_SYSCOMMAND,SC_CLOSE,0
+	stop
